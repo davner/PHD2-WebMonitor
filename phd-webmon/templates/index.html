@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <link rel="stylesheet" href="{{ url_for('static', path='bootstrap-4.6.0-dist/css/bootstrap.min.css') }}"></link>
+  <link href="{{ url_for('static', path='fontawesome/css/all.css') }}" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', path='/css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='/css/led.css') }}">
+
+  <title>PHD2 Web Monitor | MTNOPS</title>
+</head>
+
+<body>
+  <div class="container-fluid header">
+    <div class="row">
+      <div class="col">
+        <h1>PHD2 Web Monitor</h1>
+        <p class="small">Your ID: <span id="clientId"></span></h5>
+      </div>
+    </div>
+  </div>
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-xl-3 col-lg-3 col-md-5 col-12">
+        <!-- <div class="row">
+          <div class="col">
+            <div class="card">
+              <div class="card-header">
+                <p class="h5">Controls</p>
+              </div>
+              <div class="card-body">
+                <button class="btn btn-light btn-block" data-phd2command="connect">Connect to Server</button>
+                <button class="btn btn-light btn-block" data-phd2command="loop">Loop Exposures</button>
+                <button class="btn btn-light btn-block" data-phd2command="find-star">Auto Select Star</button>
+                <button class="btn btn-light btn-block" data-phd2command="guide">Start Guiding</button>
+                <button class="btn btn-warning btn-block" data-phd2command="stop_capture">Stop Looping/Guiding</button>
+              </div>
+            </div>
+          </div>
+        </div> -->
+        <div class="row">
+          <div class="col">
+            <section id="statusSection"></section>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col">
+            <div class="card">
+              <div class="card-header">
+                <div class="row">
+                  <div class="col">
+                    <p class="h5">PHD2 Events</p>
+                  </div>
+                </div>
+              </div>
+              <div class="card-body">
+                <section id="eventLightsSection"></section>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-9 col-lg-9 col-md-7 col-12">
+        <div class="row">
+          <div class="col-lg-6 col-12">
+            <section id="guidingSection"></section>
+            <section id="errorsSection"></section>
+            <section id="alertsSection"></section>
+          </div>
+          <div class="col-lg-6 col-12">
+            <section id="calibrationSection"></section>
+            <section id="starLostSection"></section>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- <ul id='messages'></ul> -->
+  </div>
+  
+  <script>
+    /* 
+    "CalibrationComplete",
+    "StarSelected",
+    "StartGuiding",
+    "Paused",
+    "StartCalibration",
+    "CalibratingFailed",
+    "CalibrationDataFlipped",
+    "LockPositionShiftLimitReached",
+    "LoopingExposures",
+    "LoopingExposuresStopped",
+    "SettleBegin",
+    "Settling",
+    "SettleDone",
+    "StarLost",
+    "GuidingStopped",
+    "Resumed",
+    "GuideStep",
+    "GuidingDithered",
+    "LockPositionLost",
+    "Alert",
+    "GuideParamChange",
+    "ConfigurationChange"
+    */
+    
+    
+
+    const AUTO_RECONNECT_DELAY = 5000;
+    const CLIENT_ID = Date.now()
+    var fadeTimeout;
+    document.getElementById("clientId").textContent = `Observer_${CLIENT_ID}`;
+
+    const buildEventLightsSection = () => {
+      var section = document.getElementById(`eventLightsSection`);
+      for (var phd2Event of PHD2_EVENTS) {
+        var row = document.createElement("div");
+        row.classList.add("row");
+        var col = document.createElement("div");
+        col.classList.add("col-12");
+        var led = document.createElement("div");
+        led.setAttribute(`data-phd2event`, `${phd2Event.event}`);
+        led.classList.add("led");
+        var label = document.createElement("p")
+        label.textContent = `${phd2Event.label}`;
+
+        //label.prepend(span);
+        col.appendChild(led)
+        col.appendChild(label);
+        row.appendChild(col);
+        section.appendChild(row);
+        
+      }
+    }
+
+    buildEventLightsSection()
+    const buildSections = () => {
+      for (var data of CARD_DATA) {
+        var section = document.getElementById(`${data.id}Section`)
+        console.log(section)
+        // Create a row and col for each line
+        var card = document.createElement("div");
+        card.id = `${data.id}Card`;
+        card.classList.add("card");
+        var cardHeader = document.createElement("div");
+        cardHeader.classList.add("card-header");
+        var cardHeaderRow = document.createElement("div");
+        cardHeaderRow.classList.add("row");
+        var cardHeaderCol = document.createElement("div");
+        cardHeaderCol.classList.add("col-12");
+        var headerLabel = document.createElement("p")
+        headerLabel.classList.add("h5")
+        headerLabel.textContent = `${data.header}`;
+
+        var cardBody = document.createElement("div");
+        cardBody.classList.add("card-body");
+
+        // Append everything to header
+        card.appendChild(cardHeader);
+        cardHeader.appendChild(cardHeaderRow);
+        cardHeaderRow.appendChild(cardHeaderCol);
+        cardHeaderCol.appendChild(headerLabel);
+
+        var table = document.createElement("table");
+        table.classList.add("table", "table-sm", "table-borderless");
+        // Header done, now build body
+        for (var key in data.body) {
+          payload = data.body[key]
+          /* var tr = document.createElement("tr");
+          var td1 =  document.createElement("td");
+          var td2 =  document.createElement("td");
+          // Update label
+          td1.textContent = `${payload.label}`;
+          td1.title = `${payload.hint}`;
+          // Set data attribute for easy updating
+          td2.setAttribute(`data-${payload.event}`, `${payload.name}`);
+          tr.appendChild(td1);
+          tr.appendChild(td2);
+          table.appendChild(tr);
+          cardBody.appendChild(table); */
+
+
+
+          var row = document.createElement("div");
+          row.classList.add("row");
+          var col1 = document.createElement("div");
+          col1.classList.add("col-6");
+          var col2 = document.createElement("div");
+          col2.classList.add("col-6");
+          var label = document.createElement("p");
+          var value = document.createElement("p");
+          // Set data attribute for easy updating
+          value.setAttribute(`data-${payload.event}`, `${payload.name}`);
+          // Update label
+          label.textContent = `${payload.label}`;
+          label.title = `${payload.hint}`;
+          col1.appendChild(label);
+          col2.appendChild(value);
+          row.appendChild(col1);
+          row.appendChild(col2);
+          cardBody.append(row);
+        }
+        card.append(cardBody);
+        section.append(card);
+      }
+    }
+
+    buildSections()
+
+    const eventLights = document.querySelectorAll(`[data-phd2event]`);
+
+    const wsConnectTo = () => {
+      // https://medium.com/voodoo-engineering/websockets-on-production-with-node-js-bdc82d07bb9f
+      var ws = new WebSocket(`ws://localhost:8000/ws/${CLIENT_ID}`);
+
+      ws.onclose = () => {
+        ws = null;
+        setTimeout(() => {
+          ws = wsConnectTo()
+        }, AUTO_RECONNECT_DELAY)
+      }
+
+      ws.onerror = (error) => {
+        if (error.code === 'ECONNREFUSED') {
+          ws.removeAllListeners()
+          ws = (wsConnectTo()).ws
+        }
+      }
+
+      ws.onmessage = (event) => {
+        //var messages = document.getElementById('messages')
+        //var message = document.createElement('li')
+        var json = JSON.parse(event.data);
+        //var data = JSON.stringify(json);
+        //var content = document.createTextNode(data)
+        //message.appendChild(content)
+        //messages.appendChild(message)
+
+        if (json["Event"]) {
+          var phd2Event = json.Event;
+          // Update event LED
+          var eventLight = document.querySelector(`[data-phd2event=${phd2Event}]`);
+          if (eventLight !== null) {
+            // Reset the LEDs
+            eventLights.forEach((element) => {
+              resetLED(element);
+            })
+            // Assign color depending on event
+            switch (phd2Event) {
+              case "StarLost":
+              case "CalibratingFailed":
+              case "LockPositionLost":
+              case "Alert":
+                eventLight.classList.add("led-red");
+                break;
+              case "CalibratingFailed":
+              case "LockPositionShiftLimitReached":
+              case "LoopingExposuresStopped":
+              case "GuidingStopped":
+              case "GuideParamChange":
+              case "ConfigurationChange":
+                eventLight.classList.add("led-yellow");
+                break;
+              default:
+                eventLight.classList.add("led-green");
+            }
+            
+          }
+          // Data attribute doesn't keep case
+          phd2EventAttribute = phd2Event.toLowerCase();
+          var elements = document.querySelectorAll(`[data-${phd2EventAttribute}]`)
+          elements.forEach((element) => {
+            // key = value of data attribute for event
+            var key = element.dataset[phd2EventAttribute]
+            // Handle individual cases for each key value
+            switch (key) {
+              default:
+                if (json[key])
+                  element.textContent = json[key];
+                else {
+                  element.textContent = "";
+                }
+            }
+          }) 
+        }
+        else if (json.error) {
+          var elements = document.querySelectorAll(`[data-error]`);
+          errorsCard = document.getElementById("errorsCard");
+          
+          errorsCard.classList.remove("error-fade");
+          // https://css-tricks.com/restart-css-animation/
+          void errorsCard.offsetWidth;
+          elements.forEach((element) => {
+            var key = element.dataset.error;
+            element.textContent = json.error[key];
+          })
+          errorsCard.classList.add("error-fade");
+          clearTimeout(fadeTimeout);
+          fadeTimeout = setTimeout(() => {
+            elements.forEach((element) => {
+              element.textContent = "";
+              
+            })
+          }, 10000)
+        }
+
+        else if (json.id && !json.error) {
+          var elements = document.querySelectorAll(`[data-${json.id}]`);
+          elements.forEach((element) => {
+            var key = element.dataset[json.id];
+            if (key.includes("__")) {
+              // This is a nested result so parse this way
+              var [key1, key2] = key.split("__");
+              console.log(json.result);
+              console.log(key1, key2)
+              element.textContent = json.result[key1][key2];
+            }
+            else {
+              element.textContent = json.result[key];
+            }
+          })
+        }
+      }
+      return ws
+    }
+
+    const resetLED = (element) => {
+      for (let i = element.classList.length - 1; i >= 0; i--) {
+        const className = element.classList[i];
+        if (className.startsWith('led-')) {
+          element.classList.remove(className);
+        }
+      }
+    }
+
+    const fetchUrl = async (url, timeout = 1000) => {
+      let controller = new AbortController();
+      setTimeout(() => controller.abort(), timeout);
+
+      try {
+        const method = "GET";
+        const response = await fetch(url, {
+          method: method,
+          cache: "no-cache",
+          signal: controller.signal
+        })
+        if (!response.ok) {
+          throw new Error("Network response was not ok");
+        }
+        const json = await response.json();
+        return json
+      }
+      catch (error) {
+        console.error(error);
+        return null;
+      }
+    };
+
+    const phd2CommandButtons = document.querySelectorAll("[data-phd2command]");
+
+    phd2CommandButtons.forEach((button) => {
+      var command = button.getAttribute("data-phd2command");
+      button.addEventListener("click", (event) => {
+        const url = `/phd2/command/${command}`;
+        fetchUrl(url);
+
+      })
+    })
+
+    wsConnectTo()
+  </script>
+  <script src="{{ url_for('static', path='bootstrap-4.6.0-dist/js/jquery-3.5.1.min.js') }}"></script>
+  <script src="{{ url_for('static', path='bootstrap-4.6.0-dist/js/popper.min.js') }}"></script>
+  <script src="{{ url_for('static', path='bootstrap-4.6.0-dist/js/bootstrap.min.js') }}"></script>
+</body>
+</html>

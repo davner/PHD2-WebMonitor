@@ -1,0 +1,71 @@
+p {
+  margin-bottom: 0;
+}
+
+button {
+  margin-bottom: 0.75rem;
+  width: 100%;
+  box-shadow: 0 2px 5px 1px rgba(64,60,67,.16);
+}
+
+.h5 {
+  text-transform: uppercase;
+  font-weight: bold;
+  letter-spacing: 2px;
+}
+
+.header {
+  background-color: black;
+  margin-bottom: 1rem;
+  color: white;
+  background-color: darkslategray;
+}
+
+.card-header {
+  background-color: transparent;
+  border: none;
+  padding-bottom: 0;
+}
+
+/* tr:nth-child(even) {
+  background-color: #2b2b2b;
+} */
+
+.table-sm td{
+  padding: 0;
+}
+
+.table {
+  margin-bottom: 0;
+  color: #ffffff;
+}
+
+.card {
+  border: none;
+  /* box-shadow: 0 5px 10px rgba(154,160,185,.05), 0 15px 40px rgba(166,173,201,.2); */
+  margin-bottom: 1rem;
+  background-color: #222222;
+  color: #ffffff;
+}
+
+.card-body { 
+  padding-top: 0;
+}
+body { 
+  background-color: #000000;
+  color: #ffffff;
+}
+
+html {
+  font-size: 0.9rem;
+}
+
+@keyframes error {
+  from {background-color: #dc3545;}
+  to {background-color: #222222}
+}
+
+.error-fade {
+  animation-name: error;
+  animation-duration: 3s;
+}
