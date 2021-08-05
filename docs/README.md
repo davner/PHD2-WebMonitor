@@ -17,6 +17,6 @@ uvicorn app:app
 Will run using ```gunicorn``` as a service on 90prime machine.
 
 ## Usage
-![Screenshot of webpage](screenshot.png)
+![Screenshot of webpage](desktop.png)
 
 Will update when put on 90prime computer. 
