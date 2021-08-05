@@ -9,9 +9,10 @@
   <style src="../static/css/bas.css"></style>
   <style>
     :root {
-      --primary-1: #69F0AE;
-      --primary-2: #00E676;
-      --primary-3: #00C853;
+      --primary-1: #B9F6CA;
+      --primary-2: #69F0AE;
+      --primary-3: #00E676;
+      --primary-4: #00C853;
       font-size: 14px;
       --gray-1: #ffffff;
       --gray-2: #fafafa;
@@ -27,13 +28,17 @@
       --gray-12: #141414;
       --gray-13: #000000;
     }
+    *, html {
+      padding: 0;
+      margin: 0;
+    }
     html, body {
-      height: 100vh;
+      max-width: 1200px;
+      margin: auto;
     }
     body {
-      background-color: #f0f0f0;
       font-family: sans-serif;
-      margin: 0;
+      background-color: var(--gray-13);
     }
     .led {
       margin-right: 5px;
@@ -56,9 +61,24 @@
     .led-blue {
       background-color: #24E0FF;
     }
+    .card-green {
+      background-color: var(--primary-3) !important;
+      box-shadow: none !important;
+    }
+    .card-blue {
+      background-color: #00E5FF !important;
+      box-shadow: none !important;
+    }
+    .card-yellow {
+      background-color: #FFC400 !important;
+      box-shadow: none !important;
+    }
+    .card-red {
+      background-color: #FF6E40 !important;
+      box-shadow: none !important;
+    }
     .card {
       border-radius: 0.25rem;
-      margin-top: .75rem;
       padding: 1.5rem;
       background-color: var(--gray-1);
       color: var(--gray-12);
@@ -66,6 +86,9 @@
     }
     .card-header {
       margin-bottom: .5rem;
+    }
+    .card-value {
+      margin: 0;
     }
     .card-body {
     }
@@ -76,22 +99,43 @@
       color: var(--gray-10);
     }
     .grid-container {
+      height: calc(100vh - 0.75rem);
+      padding: .75rem;
       display: grid;
-      grid-template-rows: auto;
-      grid-template-columns: 300px auto;
+      grid-template-rows: repeat(3, min-content);
+      grid-template-columns: repeat(4, 1fr);
       grid-template-areas:
-        'sidebar main-left main-right';
-      grid-gap: 0 .75rem;
-      margin-right: .75rem;
+        "connection cooler alerts errors"
+        "guiding guiding calibration calibration"
+        "starLost starLost . .";
+      row-gap: .75rem;
+      column-gap: .75rem;
+      background-color: var(--gray-4);
+      padding-bottom: 0;
     }
-    .text-label {
-      display: inline;
+    #connection {
+      grid-area: connection;
     }
-    .text-value {
-      display: inline;
+    #cooler {
+      grid-area: cooler;
+    }
+    #alerts {
+      grid-area: alerts;
+    }
+    #errors {
+      grid-area: errors;
+    }
+    #guiding {
+      grid-area: guiding;
+    }
+    #calibration {
+      grid-area: calibration;
+    }
+    #starLost {
+      grid-area: starLost;
     }
     table {
-      border-collapse: coolapse;
+      border-collapse: collapse;
       border-spacing: 0;
       border: none;
       width: 100%;
@@ -109,18 +153,9 @@
       color: var(--gray-12);
       width: 50%;
     }
-    .main-left {
-      grid-area: main-left;
-    }
-    .main-right {
-      grid-area:main-right;
-    }
-    main {
-      margin: 0;
-    }
     .brand-gradient {
-      color: var(--primary-1);
-      background-image: linear-gradient(to right,var(--primary-1), var(--primary-3));
+      color: var(--primary-2);
+      background-image: linear-gradient(to right,var(--primary-2), var(--primary-4));
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -150,7 +185,7 @@
     }
     .brand-hr {
       color: var(--primary-1);
-      background-image: linear-gradient(to right,var(--primary-1), var(--primary-3));
+      background-image: linear-gradient(to right,var(--primary-1), var(--primary-4));
       border: none;
       height: 10px;
       text-align: left;
@@ -181,10 +216,10 @@
     }
     .sidebar {
       background-color: #141414;
-      grid-area: sidebar;
       color: #ffffff;
-      height: auto;
-      min-height: 100vh;
+      height: 100vh;
+      width: 300px;
+      float: left;
     }
     .sidebar-td-label {
       color: var(--gray-4);
@@ -200,31 +235,25 @@
     }
     @media (max-width: 992px) {
       .grid-container {
+        grid-template-rows: repeat(4, min-content) 1fr;
+        grid-template-columns: 1fr 1fr;
         grid-template-areas:
-          "sidebar main-left"
-          "sidebar main-right";
-        grid-gap: 0 .75rem;
-      }
-      .main-left {
-        margin-bottom: -10.5px;
-      }
-      .main-right {
-        margin-top: -10.5px;
-      }
-      
+          "connection cooler"
+          "alerts errors"
+          "guiding guiding"
+          "calibration calibration"
+          "starLost starLost";
+      }   
     }
-    @media (max-width: 576px) {
+    @media (max-width: 750px) {
       .grid-container {
-        grid-template-areas:
-          "sidebar"
-          "main-left"
-          "main-right";
-        grid-template-rows: 1fr auto;
-        grid-template-columns: 1fr auto;
-        grid-gap: 0 0;
+        height: auto;
+        
       }
       .sidebar {
-        min-height: auto;
+        height: auto;
+        float: none;
+        min-width: 100%;
       }
     }
 
@@ -232,8 +261,7 @@
 </head>
 
 <body>
-  <div class="grid-container">
-    
+  <main>
     <aside class="sidebar">
       <div class="brand">
         <img src="../static/img/phd.png" class="brand-img">
@@ -242,20 +270,17 @@
       <section id="status"></section>
       <section id="eventLights"></section>
     </aside>
-    <main class="main-left">
-      <!-- <section id="status"></section>
-      <section id="eventLights"></section> -->
-      <section id="guiding"></section>
-      <section id="calibration"></section>
-    </main>
-    <main class="main-right">
+    <div class="grid-container">
+      <section id="connection"></section>
+      <section id="cooler"></section>
       <section id="alerts"></section>
       <section id="errors"></section>
+      <section id="guiding"></section>
+      <section id="calibration"></section>
       <section id="starLost"></section>
-    </main>
-      
-    </main>
-  </div>
+      <section id="log"></section>
+    </div>
+  </main>
   
   
   <script src="../static/js/constants.js"></script>
@@ -294,6 +319,7 @@
       }
     }
     const buildSections = () => {
+      var smallCards = ['connection', 'cooler', 'alerts', 'errors'];
       for (var data of CARD_DATA) {
         var section = document.getElementById(`${data.id}`)
         if (section == null) {
@@ -319,6 +345,19 @@
           headerLabel.classList.add("card-label")
         }
         headerLabel.textContent = `${data.header}`;
+        console.log(data.id);
+        console.log(smallCards.includes(data.id));
+        // if the data is from the top bar then do this
+        if (smallCards.includes(data.id)) {
+          var headerValue = document.createElement("p");
+          headerValue.classList.add("card-value");
+          card.classList.add(data.class)
+          cardHeader.append(headerLabel);
+          cardHeader.append(headerValue);
+          card.appendChild(cardHeader);
+          section.append(card);
+          continue;
+        }
         // var hr = document.createElement("hr");
         // hr.classList.add("hr");
         var cardBody = document.createElement("div");

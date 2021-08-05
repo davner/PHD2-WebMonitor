@@ -11,8 +11,6 @@ from fastapi.templating import Jinja2Templates
 
 from client import Client
 
-
-
 # https://github.com/OpenPHDGuiding/phd2/wiki/EventMonitoring
 POLL_INTERVAL = 2 # Seconds
 

@@ -96,6 +96,64 @@ const PHD2_EVENTS = [
 ]
 const CARD_DATA = [
   {
+    "header": "Connection",
+    "id": "connection",
+    "class": "card-green",
+    "body": [
+      {
+        "event": "get_current_equipment",
+        "name": "camera__connected",
+        "label": "Camera Name",
+        "hint": ""
+      },
+      {
+        "event": "get_current_equipment",
+        "name": "camera__connected",
+        "label": "Camera Connected",
+        "hint": ""
+      }
+    ]
+  },
+  {
+    "header": "Cooler",
+    "id": "cooler",
+    "class": "card-blue",
+    "body": [
+      {
+        "event": "get_cooler_status",
+        "name": "coolerOn",
+        "label": "Cooler On?",
+        "hint": ""
+      },
+    ]
+  },
+  {
+    "header": "Alerts",
+    "id": "alerts",
+    "class": "card-yellow",
+    "body": [
+      {
+        "event": "Alert",
+        "name": "Msg",
+        "label": "Alerts",
+        "hint": "",
+      }
+    ]
+  },
+  {
+    "header": "Errors",
+    "id": "errors",
+    "class": "card-red",
+    "body": [
+      {
+        "event": "error",
+        "name": "message",
+        "label": "Errors",
+        "hint": ""
+      }
+    ]
+  },
+  {
     "header": "Status",
     "id": "status",
     "body": [
@@ -249,42 +307,6 @@ const CARD_DATA = [
         "label": "Error Code",
         "hint": "the star finder error code",
       },
-    ]
-  },
-  {
-    "header": "Errors",
-    "id": "errors",
-    "body": [
-      {
-        "event": "error",
-        "name": "code",
-        "label": "Error Code",
-        "hint": "Error code from PHD2"
-      },
-      {
-        "event": "error",
-        "name": "message",
-        "label": "Error Message",
-        "hint": "Error message from PHD2"
-      }
-    ]
-  },
-  {
-    "header": "Alerts",
-    "id": "alerts",
-    "body": [
-      {
-        "event": "Alert",
-        "name": "Type",
-        "label": "Alert Type",
-        "hint": "The type of alert: \"info\", \"question\", \"warning\", or \"error\"",
-      },
-      {
-        "event": "Alert",
-        "name": "Msg",
-        "label": "Alert Message",
-        "hint": "the text of the alert message",
-      }
     ]
   },
   {
