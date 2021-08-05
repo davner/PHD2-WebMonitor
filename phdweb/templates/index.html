@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PHD2 Web Monitor</title>
+  <link rel="apple-touch-icon" sizes="180x180" href="../static/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="../static/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="../static/favicon/favicon-16x16.png">
+  <link rel="manifest" href="../static/favicon/site.webmanifest">
+  <link rel="stylesheet" href="../static/css/main.css"></style>
+</head>
+
+<body>
+  <main>
+    <div class="grid-container">
+      <aside class="sidebar">
+        <div class="brand">
+          <img src="../static/img/phd.png" class="brand-img">
+          <p class="brand-text"><span class="brand-gradient">PHD2</span> Web Monitor</p>
+        </div>
+        <section id="status"></section>
+        <section id="eventLights"></section>
+      </aside>
+      <section id="connection"></section>
+      <section id="cooler"></section>
+      <section id="errors"></section>
+      <section id="guiding"></section>
+      <section id="calibration"></section>
+      <section id="starLost"></section>
+    </div>
+  </main>
+  <script src="../static/js/constants.js"></script>
+  <script>
+    var fadeTimeout;
+    const buildEventLightsSection = () => {
+      // Build the sidebar with lights to show events
+      var section = document.getElementById(`eventLights`);
+      var card = document.createElement("div");
+      card.id = "eventLightsCard";
+      card.classList.add("sidebar-card");
+      var cardHeader = document.createElement("div");
+      cardHeader.classList.add("card-header");
+      var headerLabel = document.createElement("p");
+      headerLabel.classList.add("sidebar-label");
+      headerLabel.textContent = "Events";
+      var cardBody = document.createElement("div");
+      cardBody.classList.add("card-body", "event-lights");
+      
+      // Loop through all events and create lights for each
+      for (var phd2Event of PHD2_EVENTS) {
+        var led = document.createElement("span");
+        led.setAttribute(`data-phd2event`, `${phd2Event.event}`);
+        led.classList.add("led");
+        var label = document.createElement("p")
+        label.classList.add("event-text");
+        label.appendChild(led);
+        text = document.createTextNode(`${phd2Event.label}`);
+
+        label.appendChild(text);
+        cardBody.appendChild(label);
+        cardHeader.appendChild(headerLabel);
+        card.appendChild(cardHeader);
+        card.appendChild(cardBody);
+        section.appendChild(card);
+      }
+    }
+
+    const buildSections = () => {
+      // Build the sections with cards and small cards
+      var smallCards = ['connection', 'cooler', 'alerts', 'errors'];
+      for (var data of CARD_DATA) {
+        var section = document.getElementById(`${data.id}`)
+        // If no section by that id, continue to next iteration
+        if (section == null) {
+          continue
+        }
+        // Create a row and col for each line
+        var card = document.createElement("div");
+        card.id = `${data.id}Card`;
+        var cardHeader = document.createElement("div");
+        cardHeader.classList.add("card-header");
+        var headerLabel = document.createElement("p")
+        headerLabel.textContent = `${data.header}`;
+        // There are 3 different cards, figure out
+        switch (data.id) {
+          case "status":
+            sidebarCard = true;
+            smallCard = false;
+            card.classList.add("sidebar-card");
+            headerLabel.classList.add("sidebar-label")
+            break;
+          case "connection":
+          case "cooler":
+          case "alerts":
+          case "errors":
+            sidebarCard = false;
+            smallCard = true;
+            var headerValue = document.createElement("p");
+            headerValue.classList.add("card-value");
+            headerValue.setAttribute(`data-${data.body[0].event}state`, `state`);
+            headerLabel.classList.replace("card-label", "card-label-sm");
+            headerValue.innerHTML = "&nbsp;"
+            card.classList.add(data.class)
+            cardHeader.append(headerLabel);
+            cardHeader.append(headerValue);
+            card.appendChild(cardHeader);
+            section.append(card);
+            card.classList.add("card");
+            headerLabel.classList.add("card-label-sm")
+            break;
+          default:
+            sidebarCard = false;
+            smallCard = false;
+            card.classList.add("card");
+            headerLabel.classList.add("card-label")
+        }
+        // Stop here if small card
+        if (smallCard) {
+          continue;
+        }
+        var cardBody = document.createElement("div");
+        cardBody.classList.add("card-body");
+        // Append everything to header
+        card.appendChild(cardHeader);
+        cardHeader.appendChild(headerLabel);
+
+        // Header done, now build body
+        var table = document.createElement("table");
+        for (var key in data.body) {
+          payload = data.body[key]
+          var tr = document.createElement("tr");
+          var td1 = document.createElement("td");
+          var td2 = document.createElement("td");
+          if (data.id === "status") {
+            td1.classList.add("sidebar-td-label");
+            td2.classList.add("sidebar-td-value");
+          }
+          else {
+            td1.classList.add("td-label");
+            td2.classList.add("td-value");
+          }
+          // Update label
+          td1.textContent = `${payload.label}`;
+          td1.title = `${payload.hint}`;
+          // Set data attribute for easy updating
+          td2.setAttribute(`data-${payload.event}`, `${payload.name}`);
+          tr.appendChild(td1);
+          tr.appendChild(td2);
+          table.appendChild(tr);
+        }
+        cardBody.appendChild(table);
+        card.append(cardBody);
+        section.append(card);
+      }
+    }
+    buildEventLightsSection();
+    buildSections();
+
+    const eventLights = document.querySelectorAll(`[data-phd2event]`);
+
+    const wsConnectTo = () => {
+      // https://medium.com/voodoo-engineering/websockets-on-production-with-node-js-bdc82d07bb9f
+      
+      var ws = new WebSocket(`ws://0.0.0.0:8000/ws/${CLIENT_ID}`);
+
+      ws.onclose = () => {
+        ws = null;
+        setTimeout(() => {
+          ws = wsConnectTo()
+        }, AUTO_RECONNECT_DELAY)
+      }
+
+      ws.onerror = (error) => {
+        if (error.code === 'ECONNREFUSED') {
+          ws.removeAllListeners()
+          ws = (wsConnectTo()).ws
+        }
+      }
+
+      ws.onmessage = (event) => {
+        var json = JSON.parse(event.data);
+        if (json["Event"]) {
+          var phd2Event = json.Event;
+          // Update event LED
+          var eventLight = document.querySelector(`[data-phd2event=${phd2Event}]`);
+          if (eventLight !== null) {
+            // Reset the LEDs
+            eventLights.forEach((element) => {
+              resetLED(element);
+            })
+            // Assign color depending on event
+            switch (phd2Event) {
+              case "StarLost":
+              case "CalibratingFailed":
+              case "LockPositionLost":
+              case "Alert":
+                eventLight.classList.add("led-red");
+                break;
+              case "CalibratingFailed":
+              case "LockPositionShiftLimitReached":
+              case "LoopingExposuresStopped":
+              case "GuidingStopped":
+              case "GuideParamChange":
+              case "ConfigurationChange":
+                eventLight.classList.add("led-yellow");
+                break;
+              default:
+                eventLight.classList.add("led-green");
+            }
+
+          }
+          // Data attribute doesn't keep case
+          phd2EventAttribute = phd2Event.toLowerCase();
+          var elements = document.querySelectorAll(`[data-${phd2EventAttribute}]`)
+          elements.forEach((element) => {
+            // key = value of data attribute for event
+            var key = element.dataset[phd2EventAttribute]
+            // Handle individual cases for each key value
+            switch (key) {
+              default:
+                if (json[key]) {
+                  element.textContent = json[key];
+                }
+                else {
+                  element.textContent = "";
+                }
+            }
+          })
+        }
+        else if (json.error) {
+          var element = document.querySelector(`[data-errorstate]`);
+          errorsCard = document.getElementById("errorsCard");
+
+          errorsCard.classList.remove("error-fade");
+          // https://css-tricks.com/restart-css-animation/
+          void errorsCard.offsetWidth;
+          element.textContent = `Code ${json.error.code}: ${capitalize(json.error.message)}`;
+          // use json.error.message to get that
+          errorsCard.classList.add("error-fade");
+          clearTimeout(fadeTimeout);
+          fadeTimeout = setTimeout(() => {
+            element.innerHTML = "&nbsp;";
+          }, 5000)
+        }
+
+        else if (json.id && !json.error) {
+          var elements = document.querySelectorAll(`[data-${json.id}]`);
+          var state = document.querySelector(`[data-${json.id}state]`);
+          elements.forEach((element) => {
+            var key = element.dataset[json.id];
+            if (key.includes("__")) {
+              // This is a nested result so parse this way
+              var [key1, key2] = key.split("__");
+              // Test if string, then capitalize
+              element.textContent = json.result[key1][key2];
+            }
+
+            else {
+              element.textContent = json.result[key];
+            }
+            if (state != null) {
+              switch (json.id) {
+                case "get_current_equipment":
+                  state.textContent = (json.result[key1][key2] === true) ? "Connected" : "Disconnected"
+                  break;
+                case "get_cooler_status":
+                  var on = (json.result["coolerOn"] === false) ? "Off" : "On"
+                  var temp = json.result["temperature"];
+                  state.innerHTML = `${on} ${temp}&#8451;`
+                  break;
+                default:
+                  state.textContent = "TEST";
+              }
+            }
+          })
+        }
+      }
+      return ws
+    }
+
+    const resetLED = (element) => {
+      for (let i = element.classList.length - 1; i >= 0; i--) {
+        const className = element.classList[i];
+        if (className.startsWith('led-')) {
+          element.classList.remove(className);
+        }
+      }
+    }
+    const capitalize = (string) => {
+      const lower = string.toLowerCase();
+      return string.charAt(0).toUpperCase() + lower.slice(1);
+    }
+    wsConnectTo()
+  </script>
+</body>
+
+</html>

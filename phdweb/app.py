@@ -112,14 +112,18 @@ async def stream_responses():
                 pass
 
         elif phd_client.is_connected:
-            response = await phd_client.get_responses()
-            # Add to the websocket queue
-            if response is not None: 
-                # If it is the initial data, put in variable
-                if response.get('Event') == 'Version':
-                    phd_client.initial_data = response
-                    
-                q.put_nowait(response)
+            try:
+                response = await phd_client.get_responses()
+                # Add to the websocket queue
+                if response is not None: 
+                    # If it is the initial data, put in variable
+                    if response.get('Event') == 'Version':
+                        phd_client.initial_data = response
+                        
+                    q.put_nowait(response)
+            except Exception as e:
+                print(f'ERROR: {e}')
+                pass
 
         await asyncio.sleep(0.1)
 

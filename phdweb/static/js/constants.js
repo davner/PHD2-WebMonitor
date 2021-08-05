@@ -128,19 +128,6 @@ const CARD_DATA = [
     ]
   },
   {
-    "header": "Alerts",
-    "id": "alerts",
-    "class": "card-yellow",
-    "body": [
-      {
-        "event": "Alert",
-        "name": "Msg",
-        "label": "Alerts",
-        "hint": "",
-      }
-    ]
-  },
-  {
     "header": "Errors",
     "id": "errors",
     "class": "card-red",
@@ -178,7 +165,7 @@ const CARD_DATA = [
       {
         "event": "get_cooler_status",
         "name": "coolerOn",
-        "label": "Cooler On?",
+        "label": "Cooler On",
         "hint": ""
       },
       {
