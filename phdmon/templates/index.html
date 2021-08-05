@@ -32,6 +32,7 @@
       padding: 0;
       margin: 0;
     }
+
     html, body {
       max-width: 1200px;
       margin: auto;
@@ -39,6 +40,10 @@
     body {
       font-family: sans-serif;
       background-color: var(--gray-13);
+      background-image: url("../static/img/bg.jpg");
+      background-repeat: repeat;
+      background-position: left;
+      background-size: contain;
     }
     .led {
       margin-right: 5px;
@@ -62,33 +67,42 @@
       background-color: #24E0FF;
     }
     .card-green {
-      background-color: var(--primary-3) !important;
-      box-shadow: none !important;
+      background-color: var(--primary-1) !important;
     }
     .card-blue {
-      background-color: #00E5FF !important;
-      box-shadow: none !important;
+      background-color: var(--primary-2) !important;
     }
     .card-yellow {
-      background-color: #FFC400 !important;
-      box-shadow: none !important;
+      background-color: var(--primary-3) !important;
     }
     .card-red {
-      background-color: #FF6E40 !important;
-      box-shadow: none !important;
+      background-color: var(--primary-4) !important;
+    }
+    .card-label-sm {
+      margin: 0;
+      font-weight: 700;
+      margin-bottom: .5rem;
+      margin-top: .25rem;
+      font-size: .8rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #092b00;
     }
     .card {
       border-radius: 0.25rem;
       padding: 1.5rem;
       background-color: var(--gray-1);
       color: var(--gray-12);
-      box-shadow: 0 1px 3px hsla(0, 0%, 0%, .2);
+      box-shadow: 0 4px 6px hsla(0, 0%, 0%, .15);
     }
     .card-header {
       margin-bottom: .5rem;
     }
     .card-value {
       margin: 0;
+      color: #092b00;
+      font-size: 1.5rem;
+      font-weight: 700;
     }
     .card-body {
     }
@@ -99,19 +113,19 @@
       color: var(--gray-10);
     }
     .grid-container {
-      height: calc(100vh - 0.75rem);
+      min-height: 100vh;
       padding: .75rem;
       display: grid;
-      grid-template-rows: repeat(3, min-content);
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(2, min-content) 1fr;
+      grid-template-columns: 300px repeat(4, 1fr);
       grid-template-areas:
-        "connection cooler alerts errors"
-        "guiding guiding calibration calibration"
-        "starLost starLost . .";
+        "sidebar connection cooler alerts errors"
+        "sidebar guiding guiding calibration calibration"
+        "sidebar starLost starLost . .";
       row-gap: .75rem;
       column-gap: .75rem;
       background-color: var(--gray-4);
-      padding-bottom: 0;
+      padding-bottom: .75rem;
     }
     #connection {
       grid-area: connection;
@@ -204,7 +218,7 @@
       font-weight: 700;
       margin-bottom: .5rem;
       margin-top: .25rem;
-      font-size: .9rem;
+      font-size: .8rem;
       text-transform: uppercase;
       letter-spacing: 1.5px;
       color: var(--gray-1);
@@ -217,9 +231,11 @@
     .sidebar {
       background-color: #141414;
       color: #ffffff;
-      height: 100vh;
-      width: 300px;
-      float: left;
+      grid-area: sidebar;
+      width: auto;
+      margin-top: -.75rem;
+      margin-left: -.75rem;
+      margin-bottom: -.75rem;
     }
     .sidebar-td-label {
       color: var(--gray-4);
@@ -233,44 +249,53 @@
       padding-top: .25rem;
       color: var(--gray-4)
     }
+    .wrapper {
+      height: 100%;
+    }
     @media (max-width: 992px) {
       .grid-container {
         grid-template-rows: repeat(4, min-content) 1fr;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 300px repeat(2, 1fr);
         grid-template-areas:
-          "connection cooler"
-          "alerts errors"
-          "guiding guiding"
-          "calibration calibration"
-          "starLost starLost";
-      }   
+          "sidebar connection cooler"
+          "sidebar alerts errors"
+          "sidebar guiding guiding"
+          "sidebar calibration calibration"
+          "sidebar starLost starLost";
+      }
+      
     }
     @media (max-width: 750px) {
       .grid-container {
-        height: auto;
-        
+        grid-template-rows: repeat(6, min-content);
+        grid-template-columns: repeat(2, 1fr);
+        grid-template-areas:
+            "sidebar sidebar"
+            "connection cooler"
+            "alerts errors"
+            "guiding guiding"
+            "calibration calibration"
+            "starLost starLost";
       }
       .sidebar {
         height: auto;
-        float: none;
-        min-width: 100%;
+        margin-bottom: 0;
       }
     }
-
   </style>
 </head>
 
 <body>
   <main>
-    <aside class="sidebar">
-      <div class="brand">
-        <img src="../static/img/phd.png" class="brand-img">
-        <p class="brand-text"><span class="brand-gradient">PHD2</span> Web Monitor</p>
-      </div>
-      <section id="status"></section>
-      <section id="eventLights"></section>
-    </aside>
     <div class="grid-container">
+      <aside class="sidebar">
+        <div class="brand">
+          <img src="../static/img/phd.png" class="brand-img">
+          <p class="brand-text"><span class="brand-gradient">PHD2</span> Web Monitor</p>
+        </div>
+        <section id="status"></section>
+        <section id="eventLights"></section>
+      </aside>
       <section id="connection"></section>
       <section id="cooler"></section>
       <section id="alerts"></section>
@@ -278,7 +303,6 @@
       <section id="guiding"></section>
       <section id="calibration"></section>
       <section id="starLost"></section>
-      <section id="log"></section>
     </div>
   </main>
   
@@ -351,6 +375,8 @@
         if (smallCards.includes(data.id)) {
           var headerValue = document.createElement("p");
           headerValue.classList.add("card-value");
+          headerLabel.classList.replace("card-label", "card-label-sm");
+          headerValue.innerHTML = "&nbsp;"
           card.classList.add(data.class)
           cardHeader.append(headerLabel);
           cardHeader.append(headerValue);
