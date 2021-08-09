@@ -2,18 +2,23 @@
 
 import asyncio
 import json
+import logging
+
+# Local
+from logger import *
 
 class Conn:
     def __init__(self):
-        self._buf = b''
         self._stream_writer = None
         self._stream_reader = None
         self._terminator = b'\r\n'
         self._response = ''
-        self._timeout = 1
+        self._timeout = 3
+        self._logger = logging.getLogger(f'{LOGGING_NAME}.{self.__class__.__name__}')
 
     async def connect(self, host, port):
         """Connects to a ip and port"""
+        self._logger.debug('Connecting to PHD2')
         future = asyncio.open_connection(host, int(port))
         # Wait for timeout
         try:
@@ -21,10 +26,12 @@ class Conn:
                 future,
                 timeout=self._timeout
             )
-        except Exception:
-            # Reset connection
-            self._stream_reader = self._stream_writer = None 
-            raise PHDError('Stream timeout')
+        except asyncio.TimeoutError:
+            self._logger.debug('Socket timeout trying to conenct')
+            raise
+        except OSError:
+            self._logger.debug('PHD2 server is not on or PHD2 is not started')
+            raise
         
         return None
 
@@ -32,17 +39,24 @@ class Conn:
         """Disconnect from the ip and port"""
         # Check if writer is init
         if self.is_connected:
+            self._logger.debug('Disconnecting from PHD2')
             self._stream_writer.close()
             await self._stream_writer.wait_closed()
+            print('SUCCESS')
 
             # Reset variables
-            self._stream_reader = self._stream_writer = None
+            self.reset()
 
         return None
         
+    def reset(self):
+        self._logger.debug('Resetting stream')
+        self._stream_reader = self._stream_writer = None
+        return None
+
     @property
     def is_connected(self):
-        return self._stream_writer is not None
+        return self._stream_writer is not None and self._stream_reader is not None
 
     @property
     def response(self):
@@ -54,11 +68,13 @@ class Conn:
         self._stream_writer.write(msg)
         await self._stream_writer.drain()
 
-        return
+        return None
         
     async def recv_msg(self):
         """Recieves a message over the connection"""
+        print('READING')
         response = await self._stream_reader.readline()
+        print('DONE READING')
         self._response = response.decode()
 
         return self._response
@@ -74,25 +90,37 @@ class Client:
         self._port = port
         self._conn = None
         self._initial_data = None
+        self._logger = logging.getLogger(f'{LOGGING_NAME}.{self.__class__.__name__}')
 
     async def connect(self):
-        """Connect to PHD"""
+        """Connect to PHD2"""
         await self.disconnect()
         try:
             self._conn = Conn()
             await self._conn.connect(self._host, self._port)
-            print('Connected to {} {}'.format(self._host, self._port))
+            self._logger.info(f'Connected to PHD2 at {self._host} {self._port}')
 
         except Exception:
+            self._logger.debug('Could not connect to PHD2')
             await self.disconnect()
-            raise PHDError('Could not connect')
+            raise
+        
+        return None
     
     async def disconnect(self):
         """Disconnect from PHD"""
         if self._conn is not None:
+            self._logger.debug('Disconnecting from PHD2')
             await self._conn.disconnect()
             self._conn = None
-        
+            
+            return None
+
+    def ugly_disconnect(self):
+        """Just resets the whole connection class"""
+        self._logger.debug('Ugly disconnecting')
+        self._conn = None
+
         return None
 
     @staticmethod
@@ -112,16 +140,17 @@ class Client:
         
         return jsonrpc
 
-    @staticmethod
-    def _failed(response):
-        return 'error' in response
-
     async def comm(self, method, id=1, params=None):
+        """Communicate to PHD2 server"""
         jsonrpc = self._build_jsonrpc(method, params, id)
 
-        #print('Sending --> {}'.format(jsonrpc))
-        
-        await self._conn.send_msg(jsonrpc + '\r\n')
+        try:
+            await self._conn.send_msg(jsonrpc + '\r\n')
+        except Exception:
+            # BrokenPipeError, ConnectionResetError
+            self._logger.critical('Connection was lost, resetting')
+            self.ugly_disconnect()
+            raise
 
         return None
     
@@ -132,41 +161,34 @@ class Client:
     @initial_data.setter
     def initial_data(self, value):
         """Sets the value for initial data"""
+        self._logger.info('Got initial information')
         self._initial_data = value
         return None
     
     @property
     def is_connected(self):
+        """Returns true if _conn is not None and is connected"""
         return self._conn is not None and self._conn.is_connected
 
     async def get_responses(self):
         """Tries to get responses and returns None if not"""
         try:
             response = await self._conn.recv_msg()
-            response = response.strip('\r\n') # Can't do this above for await
-            #print(response)
-        except Exception:
-            print('Nothing on the line, sleeping')
-            return None
-        
-        if response is not None:
-            try:
-                response = json.loads(response)
-                #print('Received --> {}'.format(response))
-            except json.JSONDecodeError:
-                print('Could not unpack json from PHD')
-                pass
+            response = response.strip('\r\n')
             
+        except Exception as e:
+            self._logger.critical(f'Unknown error: {e.__class__.__name__} {e}')
+            return None
 
-        return response
+        # Return empty if response is empty
+        if response is None or response == '':
+            return None
 
-class PHDError(Exception):
-    """Base PHD error class"""
-    def __init__(self, *args):
-        if args:
-            self._message = args[0]
-        else:
-            self._message = 'Generic PHD2 error'
+        # If valid response
+        try:
+            response = json.loads(response)
+        except json.JSONDecodeError:
+            self._logger.warning(f'Could not parse response to json {response}')
+            return None
     
-    def __str__(self):
-        return '{}'.format(self._message)
+        return response

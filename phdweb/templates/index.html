@@ -164,7 +164,7 @@
     const wsConnectTo = () => {
       // https://medium.com/voodoo-engineering/websockets-on-production-with-node-js-bdc82d07bb9f
       
-      var ws = new WebSocket(`ws://0.0.0.0:8000/ws/${CLIENT_ID}`);
+      var ws = new WebSocket(`ws://localhost:8000/ws/${CLIENT_ID}`);
 
       ws.onclose = () => {
         ws = null;
