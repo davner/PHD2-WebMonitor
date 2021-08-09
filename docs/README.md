@@ -20,8 +20,8 @@ uvicorn main:app
 
 Running with Docker
 ```bash
-docker build -t phdweb .
-docker run --name phdwebcontainer -d -p 80:8000 phdweb
+docker build -t phdwebmonitor .
+docker run --name phdwebmonitorcontainer -d -p 80:8000 phdweb
 ```
 
 ## Usage
