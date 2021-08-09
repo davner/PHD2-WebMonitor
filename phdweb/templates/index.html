@@ -182,7 +182,13 @@
 
       ws.onmessage = (event) => {
         var json = JSON.parse(event.data);
-        if (json["Event"]) {
+        if (json['heartbeat']) {
+          var msg = {
+            "heartbeat": "pong"
+          };
+          ws.send(JSON.stringify(msg));
+        }
+        else if (json["Event"]) {
           var phd2Event = json.Event;
           // Update event LED
           var eventLight = document.querySelector(`[data-phd2event=${phd2Event}]`);

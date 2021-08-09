@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 
+# Python modules
 import asyncio
 import json
 import logging
 
-# Local
+# Local modules
 from logger import *
 
 class Conn:
+    """Async class to manage the connection to PHD2"""
     def __init__(self):
         self._stream_writer = None
         self._stream_reader = None
@@ -50,6 +52,7 @@ class Conn:
         return None
         
     def reset(self):
+        """Resets the stream parameters"""
         self._logger.debug('Resetting stream')
         self._stream_reader = self._stream_writer = None
         return None
@@ -64,6 +67,7 @@ class Conn:
 
     async def send_msg(self, msg):
         """Sends a message over the connection"""
+        self._logger.debug('Sending message')
         msg = msg.encode()
         self._stream_writer.write(msg)
         await self._stream_writer.drain()
@@ -71,20 +75,15 @@ class Conn:
         return None
         
     async def recv_msg(self):
-        """Recieves a message over the connection"""
-        print('READING')
+        """Receives a message over the connection"""
+        self._logger.debug('Receiving message')
         response = await self._stream_reader.readline()
-        print('DONE READING')
         self._response = response.decode()
 
         return self._response
 
 class Client:
-    """
-    Class for interacting with PHD2 guider.
-
-    Get/Set JSON-RPC
-    """
+    """Class for interacting with PHD2 guider"""
     def __init__(self, host='localhost', port=4400):
         self._host = host
         self._port = port
@@ -94,6 +93,7 @@ class Client:
 
     async def connect(self):
         """Connect to PHD2"""
+        self._logger.debug('Attempting to connect to PHD2')
         await self.disconnect()
         try:
             self._conn = Conn()
@@ -107,20 +107,17 @@ class Client:
         
         return None
     
-    async def disconnect(self):
+    async def disconnect(self, clean=True):
         """Disconnect from PHD"""
-        if self._conn is not None:
+        if not clean:
+            self._logger.debug('Not a clean disconnect from PHD2')
+            self._conn = None
+
+        elif self._conn is not None and clean:
             self._logger.debug('Disconnecting from PHD2')
             await self._conn.disconnect()
             self._conn = None
             
-            return None
-
-    def ugly_disconnect(self):
-        """Just resets the whole connection class"""
-        self._logger.debug('Ugly disconnecting')
-        self._conn = None
-
         return None
 
     @staticmethod
@@ -142,6 +139,7 @@ class Client:
 
     async def comm(self, method, id=1, params=None):
         """Communicate to PHD2 server"""
+        self._logger.debug('Communicating to PHD2')
         jsonrpc = self._build_jsonrpc(method, params, id)
 
         try:
@@ -149,7 +147,7 @@ class Client:
         except Exception:
             # BrokenPipeError, ConnectionResetError
             self._logger.critical('Connection was lost, resetting')
-            self.ugly_disconnect()
+            self.disconnect(clean=False)
             raise
 
         return None
@@ -172,6 +170,7 @@ class Client:
 
     async def get_responses(self):
         """Tries to get responses and returns None if not"""
+        self._logger.debug('Getting response from PHD2')
         try:
             response = await self._conn.recv_msg()
             response = response.strip('\r\n')

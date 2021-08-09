@@ -1,30 +1,39 @@
-import socket
-import json
-import time
+#!/usr/bin/env python3
+
+# Python modules
 import asyncio
 import logging
-
 from typing import List
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+# Local modules
 from client import Client
 from logger import *
 
-# https://github.com/OpenPHDGuiding/phd2/wiki/EventMonitoring
-POLL_INTERVAL = 2 # Seconds
+# Sources
+"""
+https://github.com/OpenPHDGuiding/phd2/wiki/EventMonitoring
+"""
 
-PHD2_QUERIES = {
-    'get_current_equipment': 'get_current_equipment',
-    'get_cooler_status': 'get_cooler_status',
-    'get_connected': 'get_connected'
-}
+# Constants
+POLL_INTERVAL = 1 # Seconds
+STREAM_INTERVAL = 0.1 # Seconds
+CONNECT_INTERVAL = 3 # Seconds
+HEARTBEAT_TIMEOUT = 1 # Seconds
+HEARTBEAT_EXPECTED = {'heartbeat': 'pong'}
+PHD2_QUERIES = [
+    'get_current_equipment',
+    'get_cooler_status',
+    'get_connected'
+]
 
 # Configure logging
 logging.config.dictConfig(LOGGING)
 logger = logging.getLogger(f'{LOGGING_NAME}')
+
 # Set up queue and fastapi
 q = asyncio.Queue()
 app = FastAPI()
@@ -51,14 +60,34 @@ class ConnectionManager:
         self._active_connections.remove(websocket)
         return None
     
+    async def send_heartbeat(self, websocket: WebSocket):
+        """Heartbeat ping/pong to keep connection"""
+        msg = {'heartbeat': 'ping'}
+        try:
+            # Create timeout for sending heartbeat
+            future = websocket.send_json(msg)
+            await asyncio.wait_for(future, timeout=HEARTBEAT_TIMEOUT)
+
+            # Create timeout for receiving heartbeat
+            future = websocket.receive_json()
+            heartbeat = await asyncio.wait_for(future, timeout=HEARTBEAT_TIMEOUT)
+
+            # If the heartbeat doesn't match, then raise
+            if heartbeat != HEARTBEAT_EXPECTED:
+                print(f'DIDNT GET HEARTBESt RIGHT {heartbeat}')
+                raise asyncio.TimeoutError
+
+        except asyncio.TimeoutError:
+            self._logger.debug('Heartbeat was not successful')
+            raise WebSocketDisconnect
+        
+        return None
+        
     async def broadcast(self, msg: str):
         """Broadcase to active connections"""
         for connection in self._active_connections:
-            try:
-                await connection.send_json(msg)
-            except Exception as e:
-                self._logger.error(e.__class__.__name__, e)
-                self._active_connections.remove(connection)
+            await connection.send_json(msg)
+
         return None
 
     @property
@@ -72,72 +101,84 @@ templates = Jinja2Templates(directory='templates')
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
+    """Returns the web page template"""
     return templates.TemplateResponse('index.html', {'request': request})
 
 @app.websocket("/ws/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, client_id: int):
     """Handles incoming websocket connections and reads from queue"""
+    logger.info(f'Accepting client #{client_id}')
     await manager.connect(websocket)
-    try:
-        while True:
-            data = await q.get()
+    # TODO Send intial data
+    while True:
+        try:
+            await manager.send_heartbeat(websocket)
+            data = await q.get_nowait()
             await manager.broadcast(data)
             q.task_done()
 
-    except Exception as e:
-        logger.critical(e.__class__.__name__)
-        logger.critical(f'Client #{client_id} left')
-        manager.disconnect(websocket)
+        except asyncio.QueueEmpty:
+            # Nothing in the queue to send so continue
+            continue
 
+        except WebSocketDisconnect:
+            logger.info(f'Client #{client_id} left')
+            manager.disconnect(websocket)
+            return None
 
 async def stream():
     """Main streaming loop for PHD"""
     while True:
-        logger.debug(phd_client.is_connected)
         if phd_client.is_connected and manager.active_connections:
             response = await phd_client.get_responses()
-            logger.critical(response)
-            if response is None: 
-                await asyncio.sleep(1)
-                continue
+            if response is not None: 
             # Add to the websocket queue
             # If it is the initial data, put in variable
-            if response.get('Event') == 'Version':
-                phd_client.initial_data = response
-            q.put_nowait(response)
+                if response.get('Event') == 'Version':
+                    phd_client.initial_data = response
+                q.put_nowait(response)
 
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(STREAM_INTERVAL)
+    
+    return None
 
 async def poll():
+    """Polls PHD2 with specific queries"""
     while True:
-        logger.debug('Polling phd2')
-        for rpc in PHD2_QUERIES.items():
-            await asyncio.sleep(1)
+        for rpc in PHD2_QUERIES:
             if phd_client.is_connected and manager.active_connections:
-                (method, id) = rpc
                 try:
-                    await phd_client.comm(method, id)
+                    await phd_client.comm(rpc, rpc)
                 except Exception as e:
-                    continue
+                    await phd_client.disconnect(clean=False)
+                
+            await asyncio.sleep(POLL_INTERVAL)
+
+    return None
 
 async def connection():
+    """Manages the connection to PHD2"""
     while True:
         if not phd_client.is_connected and manager.active_connections:
             try:
                 await phd_client.connect()
             except Exception as e:
-                logger.warning('Could not connect to PHD2, try again in 3')
-                await asyncio.sleep(3)
+                # TODO Add error packet to send over to let the user know cannot connect
+                logger.warning(f'Could not connect to PHD2, trying again in {CONNECT_INTERVAL} seconds')
+                await asyncio.sleep(CONNECT_INTERVAL)
 
         elif phd_client.is_connected and not manager.active_connections:
             await phd_client.disconnect()
-        await asyncio.sleep(1)
+
+        await asyncio.sleep(POLL_INTERVAL)
+    
+    return None
             
 @app.on_event('startup')
 async def startup_event():
     """Runs on app startup"""
     # Create tasks
-    logger.info('Creating tasks')
+    logger.info('Starting app')
     asyncio.create_task(connection())
     asyncio.create_task(stream())
     asyncio.create_task(poll())
