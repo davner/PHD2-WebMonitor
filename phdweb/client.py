@@ -44,7 +44,6 @@ class Conn:
             self._logger.debug('Disconnecting from PHD2')
             self._stream_writer.close()
             await self._stream_writer.wait_closed()
-            print('SUCCESS')
 
             # Reset variables
             self.reset()
@@ -112,11 +111,13 @@ class Client:
         if not clean:
             self._logger.debug('Not a clean disconnect from PHD2')
             self._conn = None
+            self._initial_data = None
 
         elif self._conn is not None and clean:
             self._logger.debug('Disconnecting from PHD2')
             await self._conn.disconnect()
             self._conn = None
+            self._initial_data = None
             
         return None
 
@@ -147,7 +148,7 @@ class Client:
         except Exception:
             # BrokenPipeError, ConnectionResetError
             self._logger.critical('Connection was lost, resetting')
-            self.disconnect(clean=False)
+            await self.disconnect(clean=False)
             raise
 
         return None
@@ -171,13 +172,8 @@ class Client:
     async def get_responses(self):
         """Tries to get responses and returns None if not"""
         self._logger.debug('Getting response from PHD2')
-        try:
-            response = await self._conn.recv_msg()
-            response = response.strip('\r\n')
-            
-        except Exception as e:
-            self._logger.critical(f'Unknown error: {e.__class__.__name__} {e}')
-            return None
+        response = await self._conn.recv_msg()
+        response = response.strip('\r\n')
 
         # Return empty if response is empty
         if response is None or response == '':

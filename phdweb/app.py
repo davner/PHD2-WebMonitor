@@ -67,7 +67,6 @@ class ConnectionManager:
             # Create timeout for sending heartbeat
             future = websocket.send_json(msg)
             await asyncio.wait_for(future, timeout=HEARTBEAT_TIMEOUT)
-
             # Create timeout for receiving heartbeat
             future = websocket.receive_json()
             heartbeat = await asyncio.wait_for(future, timeout=HEARTBEAT_TIMEOUT)
@@ -109,31 +108,35 @@ async def websocket_endpoint(websocket: WebSocket, client_id: int):
     """Handles incoming websocket connections and reads from queue"""
     logger.info(f'Accepting client #{client_id}')
     await manager.connect(websocket)
-    # TODO Send intial data
+    # Add initial data to the queue
+    if phd_client.is_connected and phd_client.initial_data is not None:
+        q.put_nowait(phd_client.initial_data)
     while True:
         try:
             await manager.send_heartbeat(websocket)
-            data = await q.get_nowait()
+            data = q.get_nowait()
             await manager.broadcast(data)
             q.task_done()
 
         except asyncio.QueueEmpty:
             # Nothing in the queue to send so continue
-            continue
+            pass
 
-        except WebSocketDisconnect:
+        except Exception:
             logger.info(f'Client #{client_id} left')
             manager.disconnect(websocket)
             return None
+        
+        await asyncio.sleep(0.1)
 
 async def stream():
     """Main streaming loop for PHD"""
     while True:
         if phd_client.is_connected and manager.active_connections:
             response = await phd_client.get_responses()
-            if response is not None: 
-            # Add to the websocket queue
-            # If it is the initial data, put in variable
+            if response is not None:
+                # Add to the websocket queue
+                # If it is the initial data, put in variable
                 if response.get('Event') == 'Version':
                     phd_client.initial_data = response
                 q.put_nowait(response)
@@ -150,7 +153,7 @@ async def poll():
                 try:
                     await phd_client.comm(rpc, rpc)
                 except Exception as e:
-                    await phd_client.disconnect(clean=False)
+                    pass
                 
             await asyncio.sleep(POLL_INTERVAL)
 
@@ -162,8 +165,10 @@ async def connection():
         if not phd_client.is_connected and manager.active_connections:
             try:
                 await phd_client.connect()
-            except Exception as e:
-                # TODO Add error packet to send over to let the user know cannot connect
+                q.put_nowait(phd_client.initial_data)
+            except OSError:
+                msg = build_error_msg('Could not connect to PHD2', code=99)
+                q.put_nowait(msg)
                 logger.warning(f'Could not connect to PHD2, trying again in {CONNECT_INTERVAL} seconds')
                 await asyncio.sleep(CONNECT_INTERVAL)
 
@@ -173,6 +178,19 @@ async def connection():
         await asyncio.sleep(POLL_INTERVAL)
     
     return None
+
+def build_error_msg(error, code=10):
+    """Builds an error message to add to the queue"""
+    msg = {
+        'jsonrpc': '2.0',
+        'error': {
+            'code': code,
+            'message': f'{error}'
+        },
+        'id': 'app_error'
+    }
+
+    return msg
             
 @app.on_event('startup')
 async def startup_event():

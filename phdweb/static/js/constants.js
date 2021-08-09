@@ -145,9 +145,21 @@ const CARD_DATA = [
     "id": "status",
     "body": [
       {
-        "event": "get_current_equipment",
-        "name": "camera__name",
-        "label": "Camera Name",
+        "event": "Version",
+        "name": "Host",
+        "label": "Host Computer",
+        "hint": ""
+      },
+      {
+        "event": "Version",
+        "name": "PHDVersion",
+        "label": "PHD Version",
+        "hint": ""
+      },
+      {
+        "event": "Version",
+        "name": "MsgVersion",
+        "label": "Message Version",
         "hint": ""
       },
       {

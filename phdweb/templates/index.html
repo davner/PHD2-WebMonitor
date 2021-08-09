@@ -250,6 +250,26 @@
           fadeTimeout = setTimeout(() => {
             element.innerHTML = "&nbsp;";
           }, 5000)
+          if (json.error.code == 99) {
+            // Clear it all
+            eventLights.forEach((element) => {
+              resetLED(element);
+            })
+            dataAttributes = [
+              'guidestep',
+              'calibrating',
+              'starlost',
+              'get_current_equipment',
+              'get_cooler_status',
+              'version'
+            ]
+            dataAttributes.forEach((attribute) => {
+              var elements = document.querySelectorAll(`[data-${attribute}]`)
+              elements.forEach((element) => {
+                element.innerHTML = "&nbsp";
+              })
+            })
+          }
         }
 
         else if (json.id && !json.error) {
